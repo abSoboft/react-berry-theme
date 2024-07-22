@@ -1,0 +1,102 @@
+.options {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: left;
+  z-index: 1;
+
+  span {
+    min-width: 100px;
+    border: none;
+    font-size: 14px;
+    letter-spacing: 0px;
+    line-height: 16px;
+    // color: blue;
+    margin-right: 5px;
+
+    &:nth-child(1) {
+      flex: 0 0 10%;
+    }
+
+    &:nth-child(2) {
+      flex: 0 0 10%;
+
+    }
+
+    &:nth-child(3) {
+      //flex: 1;
+      // width:200px;
+      flex: 0 0 10%;
+    }
+
+    &:nth-child(4) {
+      //flex: 0 0 10%;
+      flex: 1;
+      min-width: 130px;
+      text-align: left;
+    }
+
+    &:nth-child(5) {
+      flex: 0 0 10%;
+
+    }
+  }
+}
+
+.header {
+  display: flex;
+  width: 100%;
+  position: sticky;
+  top: 0;
+  height: 40px;
+  z-index: 100;
+  background-color: #efefef;
+  border-bottom: 1px solid #d7dbe1;
+  padding: 8px 10px;
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    min-width: 100px;
+    font-size: 10px;
+    letter-spacing: 1.82px;
+    line-height: 20px;
+    text-transform: uppercase;
+    // color: blue;
+    vertical-align: middle;
+    margin-right: 5px;
+
+    &:nth-child(1) {
+      flex: 0 0 10%;
+    }
+
+    &:nth-child(2) {
+      flex: 0 0 10%;
+    }
+
+    &:nth-child(3) {
+      flex: 0 0 10%;
+      //flex: 1;
+      // margin-right: 0;
+      // width:200px;
+
+    }
+
+    &:nth-child(4) {
+      //flex: 0 0 10%;
+      flex: 1;
+      min-width: 130px;
+    }
+
+    &:nth-child(5) {
+      flex: 0 0 10%;
+
+    }
+  }
+}
+
+.MuiAutocomplete-listbox {
+  padding: 0;
+}
