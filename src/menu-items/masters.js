@@ -20,7 +20,14 @@ const masters = {
       type: 'item',
       icon: icons.IconKey,
       url: '/Master/BranchMasterList',
-    }
+    },
+    {
+      id: 'purchaseOrder',
+      title: 'Purchase Order',
+      type: 'item',
+      icon: icons.IconKey,
+      url: '/master/purchase-order',
+    },
   ]
 };
 
