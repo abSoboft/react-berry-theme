@@ -1,13 +1,13 @@
-import React, { useEffect, useLayoutEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import FormControl from '@mui/material/FormControl';
 import MainCard from 'ui-component/cards/MainCard';
-import { height } from '@mui/system';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import {
   Autocomplete,
   Button,
+  FormControlLabel,
   IconButton,
   Modal,
   Paper,
@@ -21,11 +21,12 @@ import {
 } from '@mui/material';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import PartyHeader from './PartyHeader';
-import api from '../../api/axios';
-import { Form, useFieldArray, useForm } from 'react-hook-form';
+import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import './HeaderCss.scss';
 import { IconSearch } from '@tabler/icons-react';
 import SelectTable from './SelectTable';
+import { ITEM_CODES, PARTY_LIST, PURCHASE_ORDER_DETAILS } from 'api/model';
+import dayjs from 'dayjs';
 
 const style = {
   position: 'absolute',
@@ -36,83 +37,28 @@ const style = {
   bgcolor: 'background.paper',
   border: '2px solid #000',
   boxShadow: 24,
-  p: 4,
+  p: 4
 };
 
-
 const PurchaseOrder = () => {
-  const [number, setNumber] = useState();
-
-  const numberOnly = (e) => {
-    const value = e.target.value.replace(/\D/g, '');
-    setNumber(value);
-  };
-
   const [partyList, setPartyList] = useState([]);
   const [openObj, setOpenObj] = React.useState({
     isOpen: false,
-    item: null
+    item: null,
+    index: null
   });
-  const handleOpen = (item) =>
+  const handleOpen = (item, index) =>
     setOpenObj({
       isOpen: true,
-      item
+      item,
+      index
     });
   const handleClose = () =>
     setOpenObj({
       isOpen: false,
-      item: null
+      item: null,
+      index: null
     });
-
-  useEffect(() => {
-    setTimeout(() => {
-      setPartyList([
-        {
-          groupId: '1',
-          partyId: '1',
-          partyCode: 'PT01',
-          partyName: 'Microsoft'
-        },
-        {
-          groupId: '1',
-          partyId: '2',
-          partyCode: 'PT02',
-          partyName: 'Google'
-        },
-        {
-          groupId: '1',
-          partyId: '3',
-          partyCode: 'PT03',
-          partyName: 'Facebook'
-        },
-        {
-          groupId: '1',
-          partyId: '4',
-          partyCode: 'PT04',
-          partyName: 'TCS'
-        },
-        {
-          groupId: '1',
-          partyId: '5',
-          partyCode: 'PT05',
-          partyName: 'Infosys'
-        }
-      ]);
-    }, 2000);
-    // api
-    //   .get('/InvoiceEntry/GetPartyList', {
-    //     //params: data
-    //   })
-    //   .then(function (response) {
-    //   setPartyList(response.data.lstParty);
-    //   })
-    //   .catch(function (error) {
-    //     console.log(error);
-    //   })
-    //   .finally(function () {
-    //     // always executed
-    //   });
-  }, []);
 
   const {
     register,
@@ -121,55 +67,125 @@ const PurchaseOrder = () => {
     setValue,
     control,
     getValues,
+    reset,
     formState: { errors }
   } = useForm({
     defaultValues: {
       poNumber: '',
-      invoiceDate: '',
-      cmbParty: '',
+      invoiceDate: null,
+      cmbParty: null,
       gstNumber: '',
       contactNumber: ''
     }
   });
 
-  const { fields, append, prepend, remove, swap, move, insert, update } = useFieldArray({
-    control, // control props comes from useForm (optional: if you are using FormProvider)
-    name: 'itemMaster' // unique name for your Field Array1
+  useEffect(() => {
+    setTimeout(() => {
+      const partList = PARTY_LIST;
+      setPartyList(partList);
+
+      let data = PURCHASE_ORDER_DETAILS;
+
+      data.invoiceDate = data.invoiceDate ? dayjs(data.invoiceDate) : null;
+
+      data.itemMaster =
+        data.itemMaster?.map((item) => ({
+          ...item,
+          deliveryDate: item.deliveryDate ? dayjs(item.deliveryDate) : null,
+          itemCodes: item.itemCodes?.map((code) => ITEM_CODES.find((item) => item.id === code)) || [],
+          itemGroup: partList.find((f) => f.partyId === item.itemGroup) || null
+        })) || [];
+
+      data.cmbParty = partList.find((e) => e.partyId === data.cmbParty) || null;
+      reset(data);
+    }, 2000);
+  }, []);
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'itemMaster'
   });
-
-  const calculateAmount = (index) => {
-    // const item = fields[index]
-    const item = getValues(`itemMaster.${index}`);
-    console.log('item: ', item);
-    const qty = parseFloat(item.qty) || 0;
-    const rate = parseFloat(item.rate) || 0;
-    const amount = qty * rate;
-    console.log('amount: ', amount);
-    setValue(`itemMaster.${index}.total`, amount.toFixed(2));
-  };
-
-  const handleQtyChange = (index, value) => {
-    console.log('index: ', index);
-    calculateAmount(index);
-  };
-
-  const handleRateChange = (index, value) => {
-    calculateAmount(index);
-  };
 
   const saveInvoice = (data) => {
     console.log(data);
   };
 
   const addItem = () => {
-    append({ itemCode: '', itemName: '', qty: 0, rate: 0.0, total: 0.0 });
+    append({
+      itemCodes: [],
+      itemName: '',
+      itemGroup: null,
+      qty: 0,
+      rate: 0,
+      total: 0,
+      gst: 0,
+      gstAmount: 0,
+      netAmount: 0,
+      deliveryDate: null,
+      netTotal: 0
+    });
   };
 
   const removeForm = (index) => {
     remove(index);
   };
 
+  const handleSave = (selecTedItem) => {
+    setValue(`itemMaster.${openObj?.index}.itemCodes`, selecTedItem);
+    handleClose();
+  };
+
+  const value = useWatch({
+    name: 'itemMaster',
+    control
+  });
+
   
+  const cmbParty = useWatch({
+    name: 'cmbParty',
+    control
+  });
+
+  useEffect(() => {
+    setValue('contactNumber', cmbParty?.contactNumber || '');
+    setValue('gstNumber', cmbParty?.gstNo || '');
+  }, [cmbParty]);
+  
+  useEffect(() => {
+    console.log('value: ', value);
+    let taxable = 0;
+    let gstTotal = 0;
+    let grand = 0;
+
+    // loop 1
+    
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => {
+        const qty = item.qty || 0;
+        const rate = item.rate || 0;
+        const gst = item.gst || 0;
+
+        const total = qty * rate;
+        const gstAmount = (total * gst) / 100;
+        const netTotal = total + gstAmount;
+
+        setValue(`itemMaster.${index}.total`, total);
+        setValue(`itemMaster.${index}.gstAmount`, gstAmount);
+        setValue(`itemMaster.${index}.netAmount`, netTotal);
+
+        taxable += total;
+        gstTotal += gstAmount;
+        grand += netTotal;
+      });
+    }
+
+    // loop 2
+
+    setValue(`taxableAmt`, taxable);
+    setValue(`gstAmt`, gstTotal);
+    setValue(`grandTotal`, grand);
+    setValue(`netAmt`, grand - (grand * getValues('discount')) / 100);
+  }, [value]);
 
   return (
     <MainCard>
@@ -177,60 +193,138 @@ const PurchaseOrder = () => {
         <Grid item xs={12} gap={'10px'}>
           <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', gap: '20px' }}>
             <FormControl style={{ width: '50%' }} variant="outlined">
-              <TextField id="poNumber" label="PO No" variant="outlined" {...register('poNumber')} />
+              <Controller
+                control={control}
+                name="poNumber"
+                render={({ field }) => {
+                  const { onChange, onBlur, value } = field;
+                  return (
+                    <TextField
+                      id="poNumber"
+                      label="PO No."
+                      variant="outlined"
+                      disabled={true}
+                      onChange={onChange}
+                      onBlur={onBlur}
+                      value={value}
+                      defaultValue={''}
+                    />
+                  );
+                }}
+              />
             </FormControl>
 
             <FormControl style={{ width: '50%' }}>
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DatePicker label="Invoice Date" format="DD/MM/YYYY" {...register('invoiceDate')} />
-              </LocalizationProvider>
+              <Controller
+                control={control}
+                name="invoiceDate"
+                render={({ field }) => {
+                  const { onChange, onBlur, value } = field;
+                  return (
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DatePicker label="Invoice Date" format="DD/MM/YYYY" onChange={onChange} onBlur={onBlur} value={value || null} />
+                    </LocalizationProvider>
+                  );
+                }}
+              />
             </FormControl>
           </Box>
 
           <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', gap: '20px', marginTop: '20px' }}>
             <FormControl style={{ width: '50%' }}>
-              <Autocomplete
-                disablePortal
-                id="cmbParty"
-                options={partyList}
-                groupBy={(option) => option.groupId}
-                getOptionLabel={(option) => option?.partyName?.trim()}
-                renderInput={(params) => (
-                  <>
-                    <TextField {...params} label="Party" />
-                  </>
-                )}
-                filterOptions={(options, state) => options}
-                freeSolo={false}
-                renderOption={(props, option, t) => {
-                  const { key, ...optionProps } = props;
+              <Controller
+                control={control}
+                name="cmbParty"
+                render={({ field }) => {
+                  const { onChange, onBlur, value } = field;
                   return (
-                    <Box key={option?.id} component="li" sx={{ '& > img': { mr: 2, flexShrink: 0 } }} {...optionProps}>
-                      <div className={`container options`}>
-                        <span>{option?.partyId}</span>
-                        <span>{option?.partyName}</span>
-                        <span className="text-wrap">{option?.partyCode}</span>
-                      </div>
-                    </Box>
+                    <Autocomplete
+                      disablePortal
+                      id="cmbParty"
+                      options={partyList}
+                      groupBy={(option) => option.groupId}
+                      getOptionLabel={(option) => option?.partyName?.trim()}
+                      isOptionEqualToValue={(option, value) => option?.partyId === value?.partyId}
+                      renderInput={(params) => (
+                        <>
+                          <TextField {...params} label="Party" />
+                        </>
+                      )}
+                      filterOptions={(options, state) => options}
+                      freeSolo={false}
+                      renderOption={(props, option, t) => {
+                        const { key, ...optionProps } = props;
+                        return (
+                          <Box key={option?.id} component="li" sx={{ '& > img': { mr: 2, flexShrink: 0 } }} {...optionProps}>
+                            <div className={`container options`}>
+                              <span>{option?.partyId}</span>
+                              <span>{option?.partyName}</span>
+                              <span className="text-wrap">{option?.partyCode}</span>
+                            </div>
+                          </Box>
+                        );
+                      }}
+                      renderGroup={(params) => (
+                        <li key={params.key}>
+                          <PartyHeader />
+                          {params.children}
+                        </li>
+                      )}
+                      onChange={(event, selectedOptions) => {
+                        onChange(selectedOptions);
+                      }}
+                      onBlur={onBlur}
+                      value={value}
+                    />
                   );
                 }}
-                renderGroup={(params) => (
-                  <li key={params.key}>
-                    <PartyHeader />
-                    {params.children}
-                  </li>
-                )}
               />
             </FormControl>
 
             <FormControl style={{ width: '50%' }} variant="outlined">
-              <TextField disabled={true} id="gstNumber" label="GST No" variant="outlined" {...register('gstNumber')} />
+              <Controller
+                control={control}
+                name="gstNumber"
+                render={({ field }) => {
+                  const { onChange, onBlur, value } = field;
+                  return (
+                    <TextField
+                      id="contactNumber"
+                      label="GST No"
+                      variant="outlined"
+                      disabled={true}
+                      onChange={onChange}
+                      onBlur={onBlur}
+                      value={value}
+                      defaultValue={''}
+                    />
+                  );
+                }}
+              />
             </FormControl>
           </Box>
 
           <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', gap: '20px', marginTop: '20px' }}>
             <FormControl style={{ width: 'calc(50% - 10px)' }} variant="outlined">
-              <TextField id="contactNumber" label="Contact No" variant="outlined" disabled={true} {...register('contactNumber')} />
+              <Controller
+                control={control}
+                name="contactNumber"
+                render={({ field }) => {
+                  const { onChange, onBlur, value } = field;
+                  return (
+                    <TextField
+                      id="contactNumber"
+                      label="Contact No"
+                      disabled={true}
+                      variant="outlined"
+                      onChange={onChange}
+                      onBlur={onBlur}
+                      value={value}
+                      defaultValue={''}
+                    />
+                  );
+                }}
+              />
             </FormControl>
           </Box>
         </Grid>
@@ -264,8 +358,12 @@ const PurchaseOrder = () => {
 
                     <TableCell component="th" scope="row">
                       {' '}
-                      <Button disableRipple onClick={() => handleOpen(item)}>
-                        ITM001{' '}
+                      <Button disableRipple onClick={() => handleOpen(item, index)}>
+                        {getValues(`itemMaster.${index}.itemCodes`)?.length
+                          ? getValues(`itemMaster.${index}.itemCodes`)
+                              ?.map((e) => e?.name)
+                              .join(', ')
+                          : ''}{' '}
                         <IconButton color="inherit" size="small" disableRipple>
                           <IconSearch size={16} />
                         </IconButton>
@@ -284,37 +382,33 @@ const PurchaseOrder = () => {
 
                     <TableCell component="th" scope="row">
                       <FormControl style={{ width: '100%', minWidth: 150 }}>
-                        <Autocomplete
-                          disablePortal
-                          id="cmbParty"
-                          options={partyList}
-                          // groupBy={(option) => option.groupId}
-                          getOptionLabel={(option) => option?.partyName?.trim()}
-                          renderInput={(params) => (
-                            <>
-                              <TextField {...params} label="" />
-                            </>
-                          )}
-                          filterOptions={(options, state) => options}
-                          freeSolo={false}
-                          // renderOption={(props, option, t) => {
-                          //   const { key, ...optionProps } = props;
-                          //   return (
-                          //     <Box key={option?.id} component="li" sx={{ '& > img': { mr: 2, flexShrink: 0 } }} {...optionProps}>
-                          //       <div className={`container options`}>
-                          //         <span>{option?.partyId}</span>
-                          //         <span>{option?.partyName}</span>
-                          //         <span className="text-wrap">{option?.partyCode}</span>
-                          //       </div>
-                          //     </Box>
-                          //   );
-                          // }}
-                          // renderGroup={(params) => (
-                          //   <li key={params.key}>
-                          //     <PartyHeader />
-                          //     {params.children}
-                          //   </li>
-                          // )}
+                        <Controller
+                          control={control}
+                          name={`itemMaster.${index}.itemGroup`}
+                          render={({ field }) => {
+                            const { onChange, onBlur, value } = field;
+                            return (
+                              <Autocomplete
+                                disablePortal
+                                id="itemGroup"
+                                options={partyList}
+                                getOptionLabel={(option) => option?.partyName?.trim()}
+                                renderInput={(params) => (
+                                  <>
+                                    <TextField {...params} label="" variant="standard" />
+                                  </>
+                                )}
+                                filterOptions={(options, state) => options}
+                                freeSolo={false}
+                                isOptionEqualToValue={(option, value) => option?.partyId === value?.partyId}
+                                onChange={(event, selectedOptions) => {
+                                  onChange(selectedOptions);
+                                }}
+                                onBlur={onBlur}
+                                value={value}
+                              />
+                            );
+                          }}
                         />
                       </FormControl>
                     </TableCell>
@@ -324,11 +418,12 @@ const PurchaseOrder = () => {
                         id="standard-basic"
                         label=""
                         variant="standard"
+                        type="number"
                         key={item.id} // important to include key with field's id
                         {...register(`itemMaster.${index}.qty`, {
-                          onChange: (e) => {
-                            handleQtyChange(index, e.target.value);
-                          }
+                          // onChange: (e) => {
+                          //   handleQtyChange(index, e.target.value);
+                          // }
                         })}
                       />
                     </TableCell>
@@ -338,12 +433,9 @@ const PurchaseOrder = () => {
                         id="standard-basic"
                         label=""
                         variant="standard"
+                        type="number"
                         key={item.id} // important to include key with field's id
-                        {...register(`itemMaster.${index}.rate`, {
-                          onChange: (e) => {
-                            handleRateChange(index, e.target.value);
-                          }
-                        })}
+                        {...register(`itemMaster.${index}.rate`, {})}
                       />
                     </TableCell>
                     <TableCell component="th" scope="row">
@@ -369,6 +461,7 @@ const PurchaseOrder = () => {
                       <TextField
                         id="standard-basic"
                         label=""
+                        type="number"
                         variant="standard"
                         disabled={true}
                         key={item.id} // important to include key with field's id
@@ -386,18 +479,30 @@ const PurchaseOrder = () => {
                       />
                     </TableCell>
                     <TableCell component="th" scope="row">
-                      <LocalizationProvider dateAdapter={AdapterDayjs}>
-                        <DatePicker
-                          label=""
-                          format="DD/MM/YYYY"
-                          slotProps={{
-                            textField: {
-                              variant: 'standard'
-                            }
-                          }}
-                          {...register(`itemMaster.${index}.deliveryDate`)}
-                        />
-                      </LocalizationProvider>
+                      <Controller
+                        control={control}
+                        name={`itemMaster.${index}.deliveryDate`}
+                        render={({ field }) => {
+                          const { onChange, onBlur, value } = field;
+                          return (
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                              <DatePicker
+                                label="Delivery Date"
+                                sx={{ width: '110px' }}
+                                slotProps={{
+                                  textField: {
+                                    variant: 'standard'
+                                  }
+                                }}
+                                format="DD/MM/YYYY"
+                                onChange={onChange}
+                                onBlur={onBlur}
+                                value={value || null}
+                              />
+                            </LocalizationProvider>
+                          );
+                        }}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -413,6 +518,60 @@ const PurchaseOrder = () => {
           </TableContainer>
         </Grid>
 
+        <Grid container direction="row" justifyContent="flex-end" gap="50px">
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <FormControlLabel
+              control={<TextField size="small" id="taxableAmt" label="" disabled={true} variant="outlined" {...register('taxableAmt')} />}
+              labelPlacement="start"
+              label={'Taxable Amount'}
+              variant="outlined"
+              style={{
+                gap: '10px'
+              }}
+            ></FormControlLabel>
+            <FormControlLabel
+              control={<TextField size="small" id="gstAmt" label="" disabled={true} variant="outlined" {...register('gstAmt')} />}
+              labelPlacement="start"
+              label={'GST Amount'}
+              variant="outlined"
+              style={{
+                gap: '10px'
+              }}
+            ></FormControlLabel>
+          </Box>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <FormControlLabel
+              control={<TextField size="small" id="grandTotal" label="" disabled={true} variant="outlined" {...register('grandTotal')} />}
+              labelPlacement="start"
+              label={'Grand Total'}
+              variant="outlined"
+              style={{
+                gap: '10px'
+              }}
+            ></FormControlLabel>
+            <FormControlLabel
+              control={<TextField size="small" type="number" id="discount" label="" variant="outlined" {...register('discount')} />}
+              labelPlacement="start"
+              label={'Discount'}
+              variant="outlined"
+              type="number"
+              style={{
+                gap: '10px'
+              }}
+            ></FormControlLabel>
+            <FormControlLabel
+              control={<TextField size="small" id="netAmt" label="" disabled={true} variant="outlined" {...register('netAmt')} />}
+              labelPlacement="start"
+              label={'Net Amount'}
+              variant="outlined"
+              style={{
+                gap: '10px'
+              }}
+            ></FormControlLabel>
+          </Box>
+        </Grid>
+
         <Grid item xs={12}>
           <Box sx={{ mt: 2 }}>
             <Button type="submit" size="large" variant="contained" color="secondary">
@@ -423,7 +582,14 @@ const PurchaseOrder = () => {
       </form>
       <Modal open={openObj?.isOpen} onClose={handleClose} aria-labelledby="modal-modal-title" aria-describedby="modal-modal-description">
         <Box sx={style}>
-          <SelectTable />
+          {openObj?.isOpen && (
+            <SelectTable
+              selectedValues={
+                getValues(`itemMaster.${openObj?.index}.itemCodes`) ? getValues(`itemMaster.${openObj?.index}.itemCodes`) : null
+              }
+              onSave={handleSave}
+            />
+          )}
         </Box>
       </Modal>
     </MainCard>
